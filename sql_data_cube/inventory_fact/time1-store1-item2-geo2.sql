@@ -1,5 +1,10 @@
 SELECT 
-    
+    t.Nam,
+    g.Bang,
+    g.MaThanhPho,
+    s.MaCuaHang,
+    s.SoDienThoai,
+    g.TenThanhPho,
     
 CASE
     WHEN i.TrongLuong >= 0 AND i.TrongLuong < 3 THEN '0-3'
@@ -19,4 +24,4 @@ JOIN dim_item i ON f.MaMH = i.MaMH
 join dim_store s on f.MaCuaHang = s.MaCuaHang
 join dim_geo g on s.MaThanhPho = g.MaThanhPho
 
-GROUP BY t.Nam, s.MaThanhPho, s.MaCuaHang, WeightRange, g.Bang, g.MaThanhPho
+GROUP BY t.Nam, s.MaCuaHang, WeightRange, g.Bang, g.MaThanhPho

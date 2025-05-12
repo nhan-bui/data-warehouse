@@ -2,6 +2,7 @@ SELECT
     t.Nam,
     t.Quy,
     i.KichCo,
+    s.MaCuaHang,
     s.SoDienThoai,
     
 CASE
@@ -22,4 +23,4 @@ JOIN dim_item i ON f.MaMH = i.MaMH
 join dim_store s on f.MaCuaHang = s.MaCuaHang
 join dim_geo g on s.MaThanhPho = g.MaThanhPho
 
-GROUP BY t.Nam, t.Quy, s.MaThanhPho, s.MaCuaHang, i.KichCo, WeightRange
+GROUP BY t.Nam, t.Quy, s.MaCuaHang, i.KichCo, WeightRange

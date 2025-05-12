@@ -3,6 +3,7 @@ SELECT
     t.Thang,
     t.Quy,
     i.MaMH,
+    s.MaCuaHang,
     s.SoDienThoai,
     i.MoTa,
     
@@ -15,4 +16,4 @@ JOIN dim_item i ON f.MaMH = i.MaMH
 join dim_store s on f.MaCuaHang = s.MaCuaHang
 join dim_geo g on s.MaThanhPho = g.MaThanhPho
 
-GROUP BY t.Nam, t.Quy, t.Thang, s.MaThanhPho, s.MaCuaHang, i.MaMH
+GROUP BY t.Nam, t.Quy, t.Thang, s.MaCuaHang, i.MaMH

@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Analytics Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        .filter-card {
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .filter-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        .chart-container {
+            height: 400px;
+            background-color: #f8fafc;
+            border-radius: 0.75rem;
+        }
+        .breadcrumb-item:not(:last-child)::after {
+            content: "›";
+            margin: 0 8px;
+            color: #94a3b8;
+        }
+        .loading-spinner {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .tab-active {
+            background-color: white;
+            border-color: #e5e7eb;
+            border-bottom-color: transparent;
+            color: #3b82f6;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .data-table th, .data-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .data-table th {
+            background-color: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+        }
+        .data-table tr:hover {
+            background-color: #f3f4f6;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="app" class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">Interactive Analytics Dashboard</h1>
+            <p class="text-gray-600">Select dimensions to analyze your data</p>
+        </header>
+
+        <!-- Data Type Tabs -->
+        <div class="mb-6">
+            <div class="border-b border-gray-200">
+                <nav class="-mb-px flex space-x-8">
+                    <button 
+                        :class="{'tab-active border-blue-500': currentDataType === 'sales', 'border-transparent': currentDataType !== 'sales'}"
+                        class="whitespace-nowrap py-4 px-4 border-b-2 font-medium text-sm"
+                        @click="currentDataType = 'sales'"
+                    >
+                        <i class="fas fa-chart-line mr-2"></i>Sales Data
+                    </button>
+                    <button 
+                        :class="{'tab-active border-blue-500': currentDataType === 'inventory', 'border-transparent': currentDataType !== 'inventory'}"
+                        class="whitespace-nowrap py-4 px-4 border-b-2 font-medium text-sm"
+                        @click="currentDataType = 'inventory'"
+                    >
+                        <i class="fas fa-boxes mr-2"></i>Inventory Data
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Breadcrumb Navigation -->
+        <div class="flex items-center mb-6 p-3 bg-white rounded-lg shadow-sm">
+            <span class="text-gray-500 mr-2">Current view:</span>
+            <div class="breadcrumbs flex items-center text-sm">
+                <span class="breadcrumb-item font-medium text-blue-600">
+                    {{ currentDataType === 'sales' ? 'All Sales Data' : 'All Inventory Data' }}
+                </span>
+                <span v-for="(dim, index) in activeDimensions" :key="index" class="breadcrumb-item font-medium text-blue-600">
+                    {{ dim.name }}: {{ dim.display }}
+                </span>
+            </div>
+        </div>
+
+        <!-- Filter Controls -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+            <!-- Time Dimension -->
+            <div class="filter-card bg-white p-5 rounded-lg border-l-4 border-blue-500">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-semibold text-gray-800 flex items-center">
+                        <i class="fas fa-calendar-alt text-blue-500 mr-3 text-lg"></i>
+                        <span>Time Dimension</span>
+                    </h3>
+                    <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                        {{ selections.time.display }}
+                    </span>
+                </div>
+                <select 
+                    v-model="selections.time.level" 
+                    class="w-full border rounded px-3 py-2 text-sm bg-white"
+                    @change="updateSelection('time')"
+                >
+                    <option v-for="(label, value) in displayNames.time" :value="value" :key="value">
+                        {{ label }}
+                    </option>
+                </select>
+            </div>
+
+            <!-- Customer/Store Dimension -->
+            <div class="filter-card bg-white p-5 rounded-lg border-l-4 border-green-500">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-semibold text-gray-800 flex items-center">
+                        <i class="fas fa-users text-green-500 mr-3 text-lg"></i>
+                        <span>{{ currentDataType === 'sales' ? 'Customer Dimension' : 'Store Dimension' }}</span>
+                    </h3>
+                    <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                        {{ selections.customer.display }}
+                    </span>
+                </div>
+                <select 
+                    v-model="selections.customer.level" 
+                    class="w-full border rounded px-3 py-2 text-sm bg-white"
+                    @change="updateSelection('customer')"
+                >
+                    <option v-for="(label, value) in displayNames.customer" :value="value" :key="value">
+                        {{ label }}
+                    </option>
+                </select>
+            </div>
+
+            <!-- Item Dimension -->
+            <div class="filter-card bg-white p-5 rounded-lg border-l-4 border-purple-500">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-semibold text-gray-800 flex items-center">
+                        <i class="fas fa-box-open text-purple-500 mr-3 text-lg"></i>
+                        <span>Item Dimension</span>
+                    </h3>
+                    <span class="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
+                        {{ selections.item.display }}
+                    </span>
+                </div>
+                <select 
+                    v-model="selections.item.level" 
+                    class="w-full border rounded px-3 py-2 text-sm bg-white"
+                    @change="updateSelection('item')"
+                >
+                    <option v-for="(label, value) in displayNames.item" :value="value" :key="value">
+                        {{ label }}
+                    </option>
+                </select>
+            </div>
+
+            <!-- Geography Dimension -->
+            <div class="filter-card bg-white p-5 rounded-lg border-l-4 border-orange-500">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-semibold text-gray-800 flex items-center">
+                        <i class="fas fa-map-marked-alt text-orange-500 mr-3 text-lg"></i>
+                        <span>Geography Dimension</span>
+                    </h3>
+                    <span class="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">
+                        {{ selections.geo.display }}
+                    </span>
+                </div>
+                <select 
+                    v-model="selections.geo.level" 
+                    class="w-full border rounded px-3 py-2 text-sm bg-white"
+                    @change="updateSelection('geo')"
+                >
+                    <option v-for="(label, value) in displayNames.geo" :value="value" :key="value">
+                        {{ label }}
+                    </option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Apply Button -->
+        <div class="flex justify-end mb-8">
+            <button 
+                @click="applyFilters" 
+                :disabled="isLoading"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg shadow transition-all flex items-center"
+                :class="{'opacity-75': isLoading}"
+            >
+                <span>{{ isLoading ? 'Applying...' : 'Apply Filters' }}</span>
+                <i :class="isLoading ? 'fas fa-spinner loading-spinner' : 'fas fa-arrow-right'" class="ml-2"></i>
+            </button>
+        </div>
+
+        <!-- Visualization Area -->
+        <div class="mb-8">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-gray-800">Data Visualization</h2>
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm text-gray-600">View Type:</span>
+                    <select v-model="chartType" class="border rounded px-3 py-1 text-sm bg-white">
+                        <option value="bar">Bar Chart</option>
+                        <option value="line">Line Chart</option>
+                        <option value="pie">Pie Chart</option>
+                        <option value="table">Table View</option>
+                    </select>
+                </div>
+            </div>
+            <div class="chart-container p-6 bg-white rounded-lg shadow-sm">
+                <div v-if="!visualizationData" class="text-center h-full flex items-center justify-center">
+                    <div>
+                        <i class="fas fa-chart-pie text-5xl text-gray-300 mb-2"></i>
+                        <p class="text-gray-500">Select dimension options and click Apply to visualize data</p>
+                        <p class="text-sm text-gray-400 mt-1">Results will appear here</p>
+                    </div>
+                </div>
+                <div v-else-if="chartType === 'table'" class="overflow-auto" style="max-height: 350px;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th v-for="column in visualizationData.columns" :key="column.field">
+                                    {{ column.headerName }}
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(item, index) in visualizationData.data" :key="index">
+                                <td v-for="column in visualizationData.columns" :key="column.field" :style="{ textAlign: column.type === 'number' ? 'right' : 'left' }">
+                                    {{ column.type === 'number' ? (item[column.field]?.toLocaleString() || 'N/A') : (item[column.field] || 'N/A') }}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="text-sm text-gray-500 mt-2">
+                        Showing {{ visualizationData.data.length }} records of {{ visualizationData.dataType === 'sales' ? 'sales' : 'inventory' }} data
+                    </div>
+                </div>
+                <div v-else>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                        {{ visualizationData.dataType === 'sales' ? 'Sales' : 'Inventory' }} Analysis ({{ chartType.charAt(0).toUpperCase() + chartType.slice(1) }})
+                    </h3>
+                    <div class="relative h-64">
+                        <div class="absolute bottom-0 left-0 right-0 flex items-end justify-around">
+                            <div v-for="(item, index) in visualizationData.data" :key="index" class="flex flex-col items-center mx-1">
+                                <template v-if="chartType === 'bar'">
+                                    <div 
+                                        :class="visualizationData.dataType === 'sales' ? 'bg-blue-500' : 'bg-green-500'"
+                                        class="w-10 rounded-t"
+                                        :style="{ height: `${(item[visualizationData.dataType === 'sales' ? 'revenue' : 'stock'] / maxValue) * 200}px` }"
+                                    ></div>
+                                    <div class="text-xs text-gray-500 mt-1">{{ index + 1 }}</div>
+                                </template>
+                                <template v-if="chartType === 'line'">
+                                    <div class="w-10 flex items-end" :style="{ height: `${(item[visualizationData.dataType === 'sales' ? 'revenue' : 'stock'] / maxValue) * 200}px` }">
+                                        <div class="w-full border-t-2" :class="visualizationData.dataType === 'sales' ? 'border-blue-500' : 'border-green-500'"></div>
+                                        <div class="w-2 h-2 rounded-full -mt-1" :class="visualizationData.dataType === 'sales' ? 'bg-blue-500' : 'bg-green-500'"></div>
+                                    </div>
+                                    <div class="text-xs text-gray-500 mt-1">{{ index + 1 }}</div>
+                                </template>
+                                <template v-if="chartType === 'pie'">
+                                    <div 
+                                        class="w-8 h-8 rounded-full inline-block mx-1"
+                                        :style="{ background: `conic-gradient(${visualizationData.dataType === 'sales' ? '#3B82F6' : '#10B981'} ${(item[visualizationData.dataType === 'sales' ? 'revenue' : 'stock'] / maxValue) * 100}%, transparent 0)` }"
+                                    ></div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex justify-center mt-4">
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 rounded mr-2" :style="{ backgroundColor: visualizationData.dataType === 'sales' ? '#3B82F6' : '#10B981' }"></div>
+                            <span class="text-xs text-gray-600">{{ visualizationData.dataType === 'sales' ? 'Revenue' : 'Stock Quantity' }}</span>
+                        </div>
+                    </div>
+                    <div class="text-sm text-gray-500 mt-4 text-center">
+                        Visualizing {{ visualizationData.data.length }} records of {{ visualizationData.dataType === 'sales' ? 'sales' : 'inventory' }} data
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Selected Dimensions Summary -->
+        <div class="bg-white rounded-lg shadow-sm overflow-hidden mb-8">
+            <div class="p-4 border-b">
+                <h3 class="font-semibold text-gray-800">Current Dimension Selections</h3>
+            </div>
+            <div class="p-4">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="bg-blue-50 p-3 rounded-lg">
+                        <h4 class="text-sm font-medium text-blue-800 mb-1">Time</h4>
+                        <p class="text-sm text-gray-700">{{ selections.time.display }}</p>
+                    </div>
+                    <div class="bg-green-50 p-3 rounded-lg">
+                        <h4 class="text-sm font-medium text-green-800 mb-1">{{ currentDataType === 'sales' ? 'Customer' : 'Store' }}</h4>
+                        <p class="text-sm text-gray-700">{{ selections.customer.display }}</p>
+                    </div>
+                    <div class="bg-purple-50 p-3 rounded-lg">
+                        <h4 class="text-sm font-medium text-purple-800 mb-1">Item</h4>
+                        <p class="text-sm text-gray-700">{{ selections.item.display }}</p>
+                    </div>
+                    <div class="bg-orange-50 p-3 rounded-lg">
+                        <h4 class="text-sm font-medium text-orange-800 mb-1">Geography</h4>
+                        <p class="text-sm text-gray-700">{{ selections.geo.display }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    currentDataType: 'sales',
+                    chartType: 'table',
+                    isLoading: false,
+                    visualizationData: null,
+                    selections: {
+                        time: { level: '[]', display: 'All Time' },
+                        customer: { level: '[]', display: 'All Customers' },
+                        item: { level: '[]', display: 'All Items' },
+                        geo: { level: '[]', display: 'All Regions' }
+                    },
+                    displayNames: {
+                        time: {
+                            '[]': 'All Time',
+                            '["t.Nam"]': 'Year',
+                            '["t.Quy"]': 'Quarter',
+                            '["t.Thang"]': 'Month',
+                            '["t.Nam", "t.Quy"]': 'Year-Quarter',
+                            '["t.Nam", "t.Quy", "t.Thang"]': 'Year-Quarter-Month'
+                        },
+                        customer: {
+                            '[]': 'All Customers',
+                            '["s.MaCuaHang"]': 'Store'
+                        },
+                        item: {
+                            '[]': 'All Items',
+                            '["i.KichCo"]': 'Size',
+                            '["WeightRange"]': 'Weight Range',
+                            '["i.MaMH"]': 'Product Code',
+                            '["i.KichCo", "WeightRange"]': 'Size & Weight'
+                        },
+                        geo: {
+                            '[]': 'All Regions',
+                            '["g.Bang"]': 'State',
+                            '["g.MaThanhPho"]': 'City',
+                            '["g.Bang", "g.MaThanhPho"]': 'State-City'
+                        }
+                    }
+                };
+            },
+            computed: {
+                activeDimensions() {
+                    return Object.entries(this.selections)
+                        .filter(([_, selection]) => JSON.parse(selection.level).length > 0)
+                        .map(([name, selection]) => ({
+                            name: name.charAt(0).toUpperCase() + name.slice(1),
+                            display: selection.display
+                        }));
+                },
+                maxValue() {
+                    if (!this.visualizationData) return 1;
+                    const valueField = this.visualizationData.dataType === 'sales' ? 'revenue' : 'stock';
+                    return Math.max(...this.visualizationData.data.map(d => d[valueField]));
+                }
+            },
+            methods: {
+                updateSelection(dimension) {
+                    this.selections[dimension].display = this.displayNames[dimension][this.selections[dimension].level];
+                },
+                async applyFilters() {
+                    this.isLoading = true;
+                    try {
+                        const requestData = {
+                            dataType: this.currentDataType,
+                            time: this.selections.time.level,
+                            customer: this.selections.customer.level,
+                            item: this.selections.item.level,
+                            geo: this.selections.geo.level,
+                            chartType: this.chartType
+                        };
+
+                        const data = await this.mockApiCall(requestData);
+                        this.visualizationData = data;
+                    } catch (error) {
+                        console.error('Error:', error);
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+                mockApiCall(requestData) {
+                    return new Promise((resolve) => {
+                        setTimeout(() => {
+                            const mockData = {
+                                dataType: requestData.dataType,
+                                dimensions: {
+                                    time: requestData.time,
+                                    customer: requestData.customer,
+                                    item: requestData.item,
+                                    geo: requestData.geo
+                                },
+                                chartType: requestData.chartType,
+                                data: this.generateMockData(requestData),
+                                columns: this.generateColumns(requestData)
+                            };
+                            resolve(mockData);
+                        }, 1500);
+                    });
+                },
+                generateMockData(requestData) {
+                    const timeLevels = JSON.parse(requestData.time);
+                    const customerLevels = JSON.parse(requestData.customer);
+                    const itemLevels = JSON.parse(requestData.item);
+                    const geoLevels = JSON.parse(requestData.geo);
+                    
+                    const dataPoints = [];
+                    const count = 5 + Math.floor(Math.random() * 10);
+
+                    for (let i = 0; i < count; i++) {
+                        const point = {};
+
+                        if (timeLevels.length > 0) {
+                            point.time = timeLevels.map(level => `${level.split('.')[1]}_${i+1}`).join('-');
+                        }
+                        if (customerLevels.length > 0) {
+                            point.customer = customerLevels.map(level => `${level.split('.')[1]}_${i+1}`).join('-');
+                        }
+                        if (itemLevels.length > 0) {
+                            point.item = itemLevels.map(level => level.includes('.') ? 
+                                `${level.split('.')[1]}_${i+1}` : `${level}_${i+1}`).join('-');
+                        }
+                        if (geoLevels.length > 0) {
+                            point.geo = geoLevels.map(level => `${level.split('.')[1]}_${i+1}`).join('-');
+                        }
+
+                        if (requestData.dataType === 'sales') {
+                            point.revenue = Math.floor(Math.random() * 10000) + 1000;
+                            point.quantity = Math.floor(Math.random() * 100) + 1;
+                            point.profit = Math.floor(point.revenue * 0.2);
+                        } else {
+                            point.stock = Math.floor(Math.random() * 500) + 50;
+                            point.reorder_level = Math.floor(point.stock * 0.3);
+                            point.lead_time = Math.floor(Math.random() * 10) + 1;
+                        }
+
+                        dataPoints.push(point);
+                    }
+
+                    return dataPoints;
+                },
+                generateColumns(requestData) {
+                    const columns = [];
+                    const timeLevels = JSON.parse(requestData.time);
+                    const customerLevels = JSON.parse(requestData.customer);
+                    const itemLevels = JSON.parse(requestData.item);
+                    const geoLevels = JSON.parse(requestData.geo);
+
+                    if (timeLevels.length > 0) {
+                        columns.push({ field: 'time', headerName: 'Time', width: 150 });
+                    }
+                    if (customerLevels.length > 0) {
+                        columns.push({ field: 'customer', headerName: requestData.dataType === 'sales' ? 'Customer' : 'Store', width: 150 });
+                    }
+                    if (itemLevels.length > 0) {
+                        columns.push({ field: 'item', headerName: 'Item', width: 150 });
+                    }
+                    if (geoLevels.length > 0) {
+                        columns.push({ field: 'geo', headerName: 'Geography', width: 150 });
+                    }
+
+                    if (requestData.dataType === 'sales') {
+                        columns.push(
+                            { field: 'revenue', headerName: 'Revenue', width: 120, type: 'number' },
+                            { field: 'quantity', headerName: 'Quantity', width: 120, type: 'number' },
+                            { field: 'profit', headerName: 'Profit', width: 120, type: 'number' }
+                        );
+                    } else {
+                        columns.push(
+                            { field: 'stock', headerName: 'Stock', width: 120, type: 'number' },
+                            { field: 'reorder_level', headerName: 'Reorder Level', width: 120, type: 'number' },
+                            { field: 'lead_time', headerName: 'Lead Time (days)', width: 120, type: 'number' }
+                        );
+                    }
+
+                    return columns;
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

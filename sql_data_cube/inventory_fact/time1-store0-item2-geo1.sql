@@ -1,5 +1,6 @@
 SELECT 
-    
+    t.Nam,
+    g.Bang,
     
 CASE
     WHEN i.TrongLuong >= 0 AND i.TrongLuong < 3 THEN '0-3'
