@@ -1,5 +1,9 @@
 SELECT 
-    
+    t.Nam,
+    c.LoaiKH,
+    g.Bang,
+    g.MaThanhPho,
+    g.TenThanhPho,
     
 CASE
     WHEN i.TrongLuong >= 0 AND i.TrongLuong < 3 THEN '0-3'
