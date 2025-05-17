@@ -20,6 +20,7 @@ client_sales = clickhouse_connect.get_client(
     database='inventory_cube'
 )
 class SaleCube(BaseModel):
+    data_type: str
     dim_time: int
     dim_geo: int
     dim_item: int
@@ -39,6 +40,8 @@ def create_item(item: SaleCube):
 
     table_name = f"time{dim_time}_customer{dim_customer}_item{dim_item}_geo{dim_geo}"
     result = client_sales.query_arrow(f"SELECT * FROM {table_name}").to_pandas()
+
+    return result
 
 
     

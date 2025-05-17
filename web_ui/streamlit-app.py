@@ -63,7 +63,7 @@ st.markdown("""
             color: #94a3b8;
         }
         .stButton>button, .stDownloadButton>button, .stFormSubmitButton>button { /* Added .stFormSubmitButton */
-            background-color: #2563eb;
+            background-color: #76a7d4;
             color: white;
             padding: 0.5rem 1.5rem;
             border-radius: 0.5rem;
@@ -73,7 +73,7 @@ st.markdown("""
             border: none; /* Ensure no default border */
         }
         .stButton>button:hover, .stDownloadButton>button:hover, .stFormSubmitButton>button:hover { /* Added .stFormSubmitButton */
-            background-color: #1d4ed8;
+            background-color: #3d83c3;
         }
         /* Specific styling for detailed filter apply button if needed */
         .detailed-filter-container .stFormSubmitButton>button {
